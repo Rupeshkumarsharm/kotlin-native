@@ -14,55 +14,63 @@
  * limitations under the License.
  */
 import org.jetbrains.kotlin.VersionGenerator
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
+import java.util.Properties
 
-buildscript {
-    ext.rootBuildDirectory = file('..')
-
-    apply from: "$rootBuildDirectory/gradle/loadRootProperties.gradle"
-    apply from: "$rootBuildDirectory/gradle/kotlinGradlePlugin.gradle"
+plugins {
+    id("kotlin")
 }
 
-apply plugin: 'kotlin'
+val rootProperties = Properties().apply {
+    rootDir.resolve("../gradle.properties").reader().use(::load)
+}
 
-group = 'org.jetbrains.kotlin'
+val kotlinVersion: String by rootProperties
+val konanVersion: String by rootProperties
+val kotlinCompilerRepo: String by rootProperties
+val buildKotlinCompilerRepo: String by rootProperties
+
+
+group = "org.jetbrains.kotlin"
 version = konanVersion
 
 repositories {
-    mavenCentral()
-    maven { url buildKotlinCompilerRepo }
-    maven { url kotlinCompilerRepo }
+    maven("https://cache-redirector.jetbrains.com/maven-central")
+    maven(kotlinCompilerRepo)
+    maven(buildKotlinCompilerRepo)
 }
 
 // FIXME(ddol): KLIB-REFACTORING-CLEANUP: drop generation of KonanVersion!
-task generateCompilerVersion(type: VersionGenerator){}
+val generateCompilerVersion by tasks.registering(VersionGenerator::class) {}
 
-sourceSets {
-    main.kotlin {
-        srcDir 'src/main/kotlin'
-        srcDir 'src/library/kotlin'
-        srcDir generateCompilerVersion.versionSourceDirectory
-    }
+sourceSets["main"].withConvention(KotlinSourceSet::class) {
+    kotlin.srcDir("src/main/kotlin")
+    kotlin.srcDir("src/library/kotlin")
+    kotlin.srcDir(generateCompilerVersion.get().versionSourceDirectory)
 }
 
-compileKotlin {
-    dependsOn('generateCompilerVersion')
+tasks.withType<KotlinCompile> {
+    dependsOn(generateCompilerVersion)
     kotlinOptions.jvmTarget = "1.8"
 }
 
-clean {
+tasks.clean {
     doFirst {
-        if (generateCompilerVersion.versionSourceDirectory.exists())
-             generateCompilerVersion.versionSourceDirectory.delete()
+        val versionSourceDirectory = generateCompilerVersion.get().versionSourceDirectory
+        if (versionSourceDirectory.exists()) {
+            versionSourceDirectory.delete()
+        }
     }
 }
 
-jar {
+tasks.jar {
     archiveName = "shared.jar"
 }
 
 dependencies {
-    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
-    compile "org.jetbrains.kotlin:kotlin-native-utils:$kotlinVersion"
-    compile "org.jetbrains.kotlin:kotlin-util-io:$kotlinVersion"
-    compile "org.jetbrains.kotlin:kotlin-util-klib:$kotlinVersion"
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion")
+    api("org.jetbrains.kotlin:kotlin-native-utils:$kotlinVersion")
+    api("org.jetbrains.kotlin:kotlin-util-klib:$kotlinVersion")
 }
