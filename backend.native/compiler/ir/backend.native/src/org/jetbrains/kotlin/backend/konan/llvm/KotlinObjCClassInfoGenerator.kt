@@ -117,19 +117,21 @@ internal class KotlinObjCClassInfoGenerator(override val context: Context) : Con
             staticData.cStringLiteral(encoding)
     )
 
-    private fun IrClass.generateImpMethodDescs(): List<ObjCMethodDesc> = this.declarations
-            .filterIsInstance<IrSimpleFunction>()
-            .mapNotNull {
-                val annotation =
-                        it.annotations.findAnnotation(context.interopBuiltIns.objCMethodImp.fqNameSafe) ?:
-                                return@mapNotNull null
-
-                ObjCMethodDesc(
-                        annotation.getAnnotationStringValue("selector"),
-                        annotation.getAnnotationStringValue("encoding"),
-                        it.llvmFunction
-                )
-            }
+    private fun IrClass.generateImpMethodDescs(): List<ObjCMethodDesc> {
+        val noDups = mutableMapOf<String, ObjCMethodDesc>()  // remove duplicates [KT-38234]
+        declarations.filterIsInstance<IrSimpleFunction>().forEach {
+            val annotation =
+                    it.annotations.findAnnotation(context.interopBuiltIns.objCMethodImp.fqNameSafe) ?:
+                            return@forEach
+            val selector = annotation.getAnnotationStringValue("selector")
+            noDups[selector] = ObjCMethodDesc(
+                    selector,
+                    annotation.getAnnotationStringValue("encoding"),
+                    it.llvmFunction
+            )
+        }
+        return noDups.map { it.value }
+    }
 
     companion object {
         const val createdClassFieldIndex = 11
