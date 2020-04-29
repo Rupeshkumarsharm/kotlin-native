@@ -339,9 +339,9 @@ abstract class KotlinFile(
 internal fun getTopLevelPropertyDeclarationName(scope: KotlinScope, property: PropertyStub): String {
     val receiverName = when (val type = property.receiverType) {
         null -> null
-        is ClassifierStubType -> type.classifier.getRelativeFqName()
-        is AbbreviatedType -> type.abbreviatedClassifier.getRelativeFqName()
-        is FunctionalType -> type.classifier.getRelativeFqName()
+        is ClassifierStubType -> type.classifier.fqName
+        is AbbreviatedType -> type.abbreviatedClassifier.fqName
+        is FunctionalType -> type.classifier.fqName
         is TypeParameterType -> type.name
     }
     return getTopLevelPropertyDeclarationName(scope, receiverName, property.name)
